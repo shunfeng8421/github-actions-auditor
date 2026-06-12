@@ -1,0 +1,6 @@
+# GitHub Actions workflow files must use LF
+*.yml text eol=lf
+*.yaml text eol=lf
+*.py text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
