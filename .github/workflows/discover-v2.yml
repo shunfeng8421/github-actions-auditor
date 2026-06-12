@@ -1,0 +1,7 @@
+name: "Discover Repos v2"
+on: workflow_dispatch
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "discover starting..."
