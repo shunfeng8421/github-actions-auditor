@@ -1,4 +1,4 @@
-﻿"""Generate summary statistics for the auditor."""
+"""Generate summary statistics for the auditor."""
 import json
 import os
 import argparse

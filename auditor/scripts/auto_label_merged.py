@@ -1,4 +1,4 @@
-﻿"""Auto-label merged PRs for tracking."""
+"""Auto-label merged PRs for tracking."""
 import json
 import os
 import argparse

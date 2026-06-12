@@ -1,4 +1,4 @@
-﻿# GitHub Actions Security Auditor \U0001f510
+# GitHub Actions Security Auditor \U0001f510
 
 Automated security audit pipeline for GitHub Actions workflows. Scans `.github/workflows/*.yml` files, applies security fixes, and submits pull requests.
 

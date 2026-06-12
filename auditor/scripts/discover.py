@@ -1,4 +1,4 @@
-﻿"""Discover high-quality repos with GitHub Actions workflows on GitHub."""
+"""Discover high-quality repos with GitHub Actions workflows on GitHub."""
 import json
 import os
 import sys

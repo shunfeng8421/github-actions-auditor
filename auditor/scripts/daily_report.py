@@ -1,4 +1,4 @@
-﻿"""Generate daily audit report for GitHub Actions auditor."""
+"""Generate daily audit report for GitHub Actions auditor."""
 import json
 import os
 import argparse

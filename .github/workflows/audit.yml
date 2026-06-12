@@ -1,4 +1,4 @@
-﻿name: "Audit GitHub Actions Workflows"
+name: "Audit GitHub Actions Workflows"
 on:
   issues:
     timeout-minutes: 15

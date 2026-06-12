@@ -1,4 +1,4 @@
-﻿"""Track PR Status - Monitor submitted security-fix PRs and update their status."""
+"""Track PR Status - Monitor submitted security-fix PRs and update their status."""
 import json
 import os
 import sys

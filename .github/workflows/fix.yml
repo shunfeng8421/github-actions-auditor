@@ -1,4 +1,4 @@
-﻿name: "Fix Workflows & Create PR"
+name: "Fix Workflows & Create PR"
 on:
   issues:
     timeout-minutes: 15

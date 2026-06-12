@@ -1,4 +1,4 @@
-﻿name: "Track PR Status"
+name: "Track PR Status"
 on:
   schedule:
     - cron: "0 */4 * * *"

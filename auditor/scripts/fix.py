@@ -1,4 +1,4 @@
-﻿"""Auto-fix GitHub Actions workflows and create pull requests.
+"""Auto-fix GitHub Actions workflows and create pull requests.
 Reads audit findings, applies fixes to YAML, forks repo, commits, and opens PR.
 """
 import json

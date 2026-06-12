@@ -1,4 +1,4 @@
-﻿name: "Daily Report"
+name: "Daily Report"
 on:
   schedule:
     - cron: "0 22 * * *"

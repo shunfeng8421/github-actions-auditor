@@ -1,4 +1,4 @@
-﻿"""Generate human-readable audit report from GitHub Actions findings."""
+"""Generate human-readable audit report from GitHub Actions findings."""
 import json
 import os
 import glob

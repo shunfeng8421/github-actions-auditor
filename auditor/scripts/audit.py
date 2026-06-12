@@ -1,4 +1,4 @@
-﻿"""Core audit engine: scan GitHub Actions workflow files against security rules."""
+"""Core audit engine: scan GitHub Actions workflow files against security rules."""
 import json
 import os
 import re
