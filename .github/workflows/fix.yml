@@ -1,10 +1,8 @@
 name: "Fix Workflows & Create PR"
 on:
   issues:
-    timeout-minutes: 15
     types: [labeled]
   workflow_dispatch:
-    timeout-minutes: 15
     inputs:
       repo_url:
         description: "Repo URL to fix"
@@ -21,7 +19,6 @@ concurrency:
 
 jobs:
   fix:
-    timeout-minutes: 15
     if: github.event.label.name == 'fix-ready' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -39,7 +36,7 @@ jobs:
         run: |
           REPO_URL="${{ github.event.inputs.repo_url }}"
           if [ -z "$REPO_URL" ] && [ "${{ github.event_name }}" = "issues" ]; then
-            ISSUE_BODY=$(echo '${{ github.event.issue.body }}' | tr -d '\r')
+            ISSUE_BODY=$(echo '${{ github.event.issue.body }}' | tr -d '')
             REPO_URL=$(echo "$ISSUE_BODY" | grep -oP 'https://github\.com/[\w.-]+/[\w.-]+' | head -1)
           fi
           echo "url=${REPO_URL}" >> ${GITHUB_OUTPUT}
@@ -60,21 +57,12 @@ jobs:
           echo "default_branch=${BRANCH}" >> ${GITHUB_OUTPUT}
       - name: Re-run audit
         run: |
-          python auditor/scripts/audit.py \
-            --target /tmp/target_repo \
-            --rules auditor/rules/github-actions-security-rules.txt \
-            --output auditor/findings/ \
-            --log auditor/logs/events.jsonl
+          python auditor/scripts/audit.py             --target /tmp/target_repo             --rules auditor/rules/github-actions-security-rules.txt             --output auditor/findings/             --log auditor/logs/events.jsonl
       - name: Apply security fixes and create PR
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python auditor/scripts/fix.py \
-            --target /tmp/target_repo \
-            --findings auditor/findings/ \
-            --repo "${{ steps.target.outputs.name }}" \
-            --create-pr \
-            --output auditor/logs/pr_tracking.jsonl
+          python auditor/scripts/fix.py             --target /tmp/target_repo             --findings auditor/findings/             --repo "${{ steps.target.outputs.name }}"             --create-pr             --output auditor/logs/pr_tracking.jsonl
       - name: Commit PR tracking data
         run: |
           git config user.name "github-actions-auditor[bot]"

@@ -1,10 +1,8 @@
 name: "Audit GitHub Actions Workflows"
 on:
   issues:
-    timeout-minutes: 15
     types: [labeled]
   workflow_dispatch:
-    timeout-minutes: 15
     inputs:
       repo_url:
         description: "Repo URL to audit"
@@ -21,13 +19,12 @@ concurrency:
 
 jobs:
   audit:
-    timeout-minutes: 15
     if: github.event.label.name == 'audit-ready' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4
-      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90f19  # v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90f19
         with:
           python-version: "3.12"
       - name: Install deps
@@ -39,7 +36,7 @@ jobs:
         run: |
           REPO_URL="${{ github.event.inputs.repo_url }}"
           if [ -z "$REPO_URL" ] && [ "${{ github.event_name }}" = "issues" ]; then
-            ISSUE_BODY=$(echo '${{ github.event.issue.body }}' | tr -d '\r')
+            ISSUE_BODY=$(echo '${{ github.event.issue.body }}' | tr -d '')
             REPO_URL=$(echo "$ISSUE_BODY" | grep -oP 'https://github\.com/[\w.-]+/[\w.-]+' | head -1)
           fi
           echo "url=${REPO_URL}" >> ${GITHUB_OUTPUT}
@@ -54,16 +51,10 @@ jobs:
         run: git clone --depth 1 ${{ steps.target.outputs.url }} /tmp/target_repo
       - name: Run security audit
         run: |
-          python auditor/scripts/audit.py \
-            --target /tmp/target_repo \
-            --rules auditor/rules/github-actions-security-rules.txt \
-            --output auditor/findings/ \
-            --log auditor/logs/events.jsonl
+          python auditor/scripts/audit.py             --target /tmp/target_repo             --rules auditor/rules/github-actions-security-rules.txt             --output auditor/findings/             --log auditor/logs/events.jsonl
       - name: Generate audit report
         run: |
-          python auditor/scripts/report.py \
-            --findings auditor/findings/ \
-            --output auditor/logs/audit_report.md
+          python auditor/scripts/report.py             --findings auditor/findings/             --output auditor/logs/audit_report.md
       - name: Commit audit findings
         run: |
           git config user.name "github-actions-auditor[bot]"
@@ -72,7 +63,7 @@ jobs:
           git diff --staged --quiet || (git commit -m "[bot] audit: ${{ steps.target.outputs.url }}" && git push)
       - name: Post findings as issue comment
         if: github.event_name == 'issues'
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c379ccfba  # v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c379ccfba
         with:
           script: |
             const fs = require("fs");
