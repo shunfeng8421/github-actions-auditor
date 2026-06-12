@@ -3,8 +3,11 @@ on: workflow_dispatch
 permissions:
   contents: write
   issues: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   discover:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "with permissions"
+      - run: echo "with permissions and concurrency"
