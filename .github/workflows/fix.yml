@@ -1,7 +1,5 @@
 name: "Fix Workflows & Create PR"
 on:
-  issues:
-    types: [labeled]
   workflow_dispatch:
     inputs:
       repo_url:
@@ -13,13 +11,8 @@ permissions:
   issues: write
   pull-requests: write
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   fix:
-    if: github.event.label.name == 'fix-ready' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -29,68 +22,22 @@ jobs:
           python-version: "3.12"
       - name: Install deps
         run: pip install requests pyyaml
-      - name: Determine target repo
-        id: target
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Clone target repo
         run: |
           REPO_URL="${{ github.event.inputs.repo_url }}"
-          if [ -z "$REPO_URL" ] && [ "${{ github.event_name }}" = "issues" ]; then
-            ISSUE_BODY=$(echo '${{ github.event.issue.body }}' | tr -d '')
-            REPO_URL=$(echo "$ISSUE_BODY" | grep -oP 'https://github\.com/[\w.-]+/[\w.-]+' | head -1)
-          fi
-          echo "url=${REPO_URL}" >> ${GITHUB_OUTPUT}
-          REPO_NAME=$(echo "$REPO_URL" | grep -oP 'github\.com/\K[\w.-]+/[\w.-]+')
-          echo "name=${REPO_NAME}" >> ${GITHUB_OUTPUT}
-      - name: Validate target
-        run: |
-          if [ -z "${{ steps.target.outputs.url }}" ]; then
-            echo "ERROR: No target repo URL found"
-            exit 1
-          fi
-          echo "Fixing: ${{ steps.target.outputs.url }} (${{ steps.target.outputs.name }})"
-      - name: Clone target repo
-        id: clone
-        run: |
-          git clone --depth 1 ${{ steps.target.outputs.url }} /tmp/target_repo
-          BRANCH=$(cd /tmp/target_repo && git rev-parse --abbrev-ref HEAD)
-          echo "default_branch=${BRANCH}" >> ${GITHUB_OUTPUT}
-      - name: Re-run audit
+          git clone --depth 1 "$REPO_URL" /tmp/target_repo
+      - name: Run audit
         run: |
           python auditor/scripts/audit.py             --target /tmp/target_repo             --rules auditor/rules/github-actions-security-rules.txt             --output auditor/findings/             --log auditor/logs/events.jsonl
-      - name: Apply security fixes and create PR
+      - name: Apply fixes and create PR
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python auditor/scripts/fix.py             --target /tmp/target_repo             --findings auditor/findings/             --repo "${{ steps.target.outputs.name }}"             --create-pr             --output auditor/logs/pr_tracking.jsonl
-      - name: Commit PR tracking data
+          REPO_NAME=$(echo "${{ github.event.inputs.repo_url }}" | grep -oP 'github\.com/\K[\w.-]+/[\w.-]+')
+          python auditor/scripts/fix.py             --target /tmp/target_repo             --findings auditor/findings/             --repo "$REPO_NAME"             --create-pr             --output auditor/logs/pr_tracking.jsonl
+      - name: Commit tracking data
         run: |
           git config user.name "github-actions-auditor[bot]"
           git config user.email "github-actions-auditor[bot]@users.noreply.github.com"
-          git add auditor/logs/pr_tracking.jsonl auditor/findings/ auditor/logs/events.jsonl
-          git diff --staged --quiet || (git commit -m "[bot] fix: PR submitted for ${{ steps.target.outputs.name }}" && git push)
-      - name: Update issue with PR status
-        if: github.event_name == 'issues'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_URL=$(python3 << 'PYEOF'
-          import json
-          target = "${{ steps.target.outputs.name }}"
-          try:
-              with open("auditor/logs/pr_tracking.jsonl") as f:
-                  for line in f:
-                      d = json.loads(line.strip())
-                      if d.get("repo_full_name") == target:
-                          print(d.get("pr_url", ""))
-                          break
-          except:
-              pass
-          PYEOF
-          )
-          if [ -n "$PR_URL" ]; then
-            gh issue comment ${{ github.event.issue.number }} --body "Security fix PR submitted: $PR_URL"
-            gh issue edit ${{ github.event.issue.number }} --remove-label "fix-ready" --add-label "pr-submitted"
-          else
-            gh issue comment ${{ github.event.issue.number }} --body "Could not create PR. Check workflow logs."
-          fi
+          git add auditor/logs/
+          git diff --staged --quiet || (git commit -m "[bot] fix: PR submitted" && git push)
