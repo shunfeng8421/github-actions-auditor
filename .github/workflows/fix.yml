@@ -50,13 +50,14 @@ jobs:
             --rules auditor/rules/github-actions-security-rules.txt \
             --output auditor/findings/ \
             --log auditor/logs/events.jsonl
-      - name: Apply fixes to local clone
+      - name: Apply fixes locally
         run: |
           python auditor/scripts/fix.py \
             --target /tmp/target_repo \
             --findings auditor/findings/ \
             --repo "${{ steps.target.outputs.name }}"
-      - name: Commit fixes and push to fork
+      - name: Commit, fork, push, and create PR
+        id: pr
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
@@ -65,31 +66,26 @@ jobs:
           git checkout -b "$BRANCH"
           git add .github/workflows/
           if git diff --staged --quiet; then
-            echo "::notice::No changes needed"
+            echo "No changes needed"
+            echo "has_changes=false" >> ${GITHUB_OUTPUT}
             exit 0
           fi
           git -c user.name="github-actions-auditor[bot]" -c user.email="github-actions-auditor[bot]@users.noreply.github.com" commit -m "security: harden GitHub Actions workflows"
+          echo "has_changes=true" >> ${GITHUB_OUTPUT}
           echo "branch=${BRANCH}" >> ${GITHUB_OUTPUT}
-      - name: Push to fork and create PR
-        if: steps.commit.outputs.branch != ''
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        run: |
-          cd /tmp/target_repo
-          BRANCH="${{ steps.commit.outputs.branch }}"
+          
           REPO_NAME="${{ steps.target.outputs.name }}"
-          # Fork repo (idempotent)
-          gh repo fork "$REPO_NAME" --clone=false --remote=false 2>&1 || echo "Fork may already exist"
-          # Get username
+          REPO_SHORT="${REPO_NAME##*/}"
+          
+          # Fork and push
+          gh repo fork "$REPO_NAME" --clone=false --remote=false 2>&1 || true
           USERNAME=$(gh api user --jq '.login')
-          echo "Pushing to fork: ${USERNAME}/${REPO_NAME##*/}"
-          # Push to fork using token auth
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${USERNAME}/${REPO_NAME##*/}.git" "$BRANCH" --force
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${USERNAME}/${REPO_SHORT}.git" "$BRANCH" --force 2>&1
+          
           # Create PR
           gh pr create \
             --repo "$REPO_NAME" \
             --head "${USERNAME}:${BRANCH}" \
             --base master \
             --title "security: harden GitHub Actions workflows" \
-            --body "Automated security fixes for GitHub Actions workflows."
-          echo "::notice::PR created successfully"
+            --body "Automated security fixes by github-actions-auditor" 2>&1
