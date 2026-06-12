@@ -23,14 +23,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683       - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90f19         with:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
           python-version: "3.12"
       - name: Install deps
         run: pip install requests pyyaml
-            - name: Determine target repo
+      - name: Determine target repo
         id: target
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             REPO_URL="${{ github.event.inputs.repo_url }}"
@@ -40,7 +40,8 @@ jobs:
           fi
           echo "url=${REPO_URL}" >> ${GITHUB_OUTPUT}
           REPO_NAME=$(echo "$REPO_URL" | grep -oP 'github\.com/\K[\w.-]+/[\w.-]+')
-          echo "name=${REPO_NAME}" >> ${GITHUB_OUTPUT}- name: Clone target repo
+          echo "name=${REPO_NAME}" >> ${GITHUB_OUTPUT}
+      - name: Clone target repo
         run: |
           git clone --depth 1 ${{ steps.target.outputs.url }} /tmp/target_repo
       - name: Run audit first
