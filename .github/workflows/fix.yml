@@ -39,5 +39,5 @@ jobs:
         run: |
           git config user.name "github-actions-auditor[bot]"
           git config user.email "github-actions-auditor[bot]@users.noreply.github.com"
-          git add auditor/logs/
+          git add -f auditor/logs/
           git diff --staged --quiet || (git commit -m "[bot] fix: PR submitted" && git push)
