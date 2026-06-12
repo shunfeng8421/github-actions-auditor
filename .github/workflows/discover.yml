@@ -7,7 +7,7 @@ on:
 permissions:
   contents: write
   issues: write
-  actions: read
+  actions: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -50,7 +50,7 @@ jobs:
       - name: Auto-trigger audits for new repos
         if: steps.discover.outputs.new_repos > 0
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           echo "Triggering audits for newly discovered repos..."
           while IFS= read -r line; do
@@ -64,7 +64,7 @@ jobs:
       - name: Create discovery issue
         if: steps.discover.outputs.new_repos > 0
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh issue create \
             --title "[Discover] ${{ steps.discover.outputs.new_repos }} new repos found" \

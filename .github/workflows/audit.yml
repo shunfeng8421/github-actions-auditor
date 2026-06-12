@@ -82,7 +82,7 @@ jobs:
       - name: Auto-trigger fix for critical findings
         if: success()
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           FINDINGS=$(python3 -c 'import json,os,glob;files=sorted(glob.glob("auditor/findings/*_findings.jsonl")+glob.glob("auditor/findings/*/findings.jsonl"));print(sum(1 for _ in open(files[-1])) if files else 0)')
           TARGET_URL="${{ steps.target.outputs.url }}"
@@ -96,6 +96,6 @@ jobs:
       - name: Add fix-ready label
         if: github.event_name == 'issues'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           gh issue edit ${{ github.event.issue.number }} --add-label "fix-ready"
