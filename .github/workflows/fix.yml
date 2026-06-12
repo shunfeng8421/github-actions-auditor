@@ -31,6 +31,8 @@ jobs:
         run: pip install requests pyyaml
       - name: Determine target repo
         id: target
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             REPO_URL="${{ github.event.inputs.repo_url }}"
@@ -41,27 +43,68 @@ jobs:
           echo "url=${REPO_URL}" >> ${GITHUB_OUTPUT}
           REPO_NAME=$(echo "$REPO_URL" | grep -oP 'github\.com/\K[\w.-]+/[\w.-]+')
           echo "name=${REPO_NAME}" >> ${GITHUB_OUTPUT}
+          REPO_OWNER=$(echo "$REPO_NAME" | cut -d/ -f1)
+          echo "owner=${REPO_OWNER}" >> ${GITHUB_OUTPUT}
+          REPO_REPO=$(echo "$REPO_NAME" | cut -d/ -f2)
+          echo "repo=${REPO_REPO}" >> ${GITHUB_OUTPUT}
       - name: Clone target repo
         run: |
           git clone --depth 1 ${{ steps.target.outputs.url }} /tmp/target_repo
-      - name: Run audit first
+      - name: Run audit
         run: |
           python auditor/scripts/audit.py \
             --target /tmp/target_repo \
             --rules auditor/rules/github-actions-security-rules.txt \
             --output auditor/findings/ \
             --log auditor/logs/events.jsonl
-      - name: Apply security fixes and create PR
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Apply fixes locally
         run: |
-          python auditor/scripts/fix.py --token "${{ secrets.GH_PAT }}" \
+          python auditor/scripts/fix.py \
             --target /tmp/target_repo \
             --findings auditor/findings/ \
             --repo "${{ steps.target.outputs.name }}" \
-            --create-pr \
             --output auditor/logs/pr_tracking.jsonl
+      - name: Fork and create PR via gh CLI
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          BRANCH="gha-security-fixes-$(date +%Y%m%d%H%M%S)"
+          cd /tmp/target_repo
+          git checkout -b "$BRANCH"
+          git config user.name "github-actions-auditor[bot]"
+          git config user.email "github-actions-auditor[bot]@users.noreply.github.com"
+          git add .github/workflows/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "security: harden GitHub Actions workflows" -m "Auto-fix applied by github-actions-auditor"
+          # Fork the repo
+          gh repo fork "${{ steps.target.outputs.name }}" --clone=false --remote=false 2>/dev/null || true
+          # Get the authenticated username
+          USERNAME=$(gh api user --jq '.login')
+          # Push to fork
+          git push "https://x-access-token:${{ secrets.GH_PAT }}@github.com/${USERNAME}/${{ steps.target.outputs.repo }}.git" "$BRANCH" --force
+          # Create PR
+          PR_URL=$(gh pr create \
+            --repo "${{ steps.target.outputs.name }}" \
+            --head "${USERNAME}:${BRANCH}" \
+            --base "$(cd /tmp/target_repo && git remote show origin | grep 'HEAD branch' | cut -d: -f2 | xargs)" \
+            --title "security: harden GitHub Actions workflows" \
+            --body "## Security Hardening
+
+          This PR applies GitHub Actions security best practices:
+
+          - Added \`permissions: {}\` blocks with minimal scopes
+          - Added \`concurrency\` groups to prevent race conditions
+          - Added \`timeout-minutes\` to all jobs
+          - Removed echo/print of secrets
+
+          *Automated by [github-actions-auditor](https://github.com/shunfeng8421/github-actions-auditor)*")
+          echo "PR created: $PR_URL"
+          echo "pr_url=$PR_URL" >> ${GITHUB_OUTPUT}
       - name: Commit tracking data
+        if: always()
         run: |
           git config user.name "github-actions-auditor[bot]"
           git config user.email "github-actions-auditor[bot]@users.noreply.github.com"
