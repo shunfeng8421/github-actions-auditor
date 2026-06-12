@@ -263,6 +263,7 @@ def main():
     parser.add_argument("--target", required=True, help="Target repo directory")
     parser.add_argument("--rules", required=True, help="Rules file path")
     parser.add_argument("--output", default="auditor/findings/", help="Output directory for findings")
+    parser.add_argument("--repo", default=None, help="Target repo full name (owner/repo) for output subdirectory")
     parser.add_argument("--log", default="auditor/logs/events.jsonl", help="Event log path")
     args = parser.parse_args()
 
@@ -319,6 +320,8 @@ def main():
     unique = unique[:MAX_FINDINGS]
 
     # Write findings
+    if args.repo:
+        args.output = os.path.join(args.output, args.repo.replace("/", "_"))
     os.makedirs(args.output, exist_ok=True)
     findings_file = os.path.join(args.output, "findings.jsonl")
     summary_file = os.path.join(args.output, "findings_summary.json")

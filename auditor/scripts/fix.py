@@ -133,6 +133,7 @@ def add_job_timeouts(raw, parsed=None):
             changes += 1
     
     return "\n".join(lines), changes
+
 def fix_echo_secrets(raw):
     """Comment out lines that echo secrets."""
     modified = raw

@@ -20,7 +20,9 @@ jobs:
     outputs:
       new_repos: ${{ steps.discover.outputs.new_repos }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683       - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90f19         with:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90f19
+        with:
           python-version: "3.12"
       - name: Install deps
         run: pip install requests pyyaml
@@ -44,6 +46,21 @@ jobs:
             git pull --rebase origin master && \
             git push origin master
           fi
+
+      - name: Auto-trigger audits for new repos
+        if: steps.discover.outputs.new_repos > 0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Triggering audits for newly discovered repos..."
+          while IFS= read -r line; do
+            REPO_URL=$(echo "$line" | python3 -c "import sys,json; print(json.loads(sys.stdin.read()).get('url',''))")
+            if [ -n "$REPO_URL" ]; then
+              echo "  Triggering audit for: $REPO_URL"
+              gh workflow run audit.yml -f repo_url="$REPO_URL" || true
+              sleep 3
+            fi
+          done < <(tail -n ${{ steps.discover.outputs.new_repos }} auditor/logs/discovered_repos.jsonl)
       - name: Create discovery issue
         if: steps.discover.outputs.new_repos > 0
         env:

@@ -48,14 +48,16 @@ jobs:
           python auditor/scripts/audit.py \
             --target /tmp/target_repo \
             --rules auditor/rules/github-actions-security-rules.txt \
+            --repo "${{ steps.target.outputs.name }}" \
             --output auditor/findings/ \
             --log auditor/logs/events.jsonl
       - name: Apply fixes and generate diff
         id: fix
         run: |
+          REPO_SAFE=$(echo "${{ steps.target.outputs.name }}" | tr '/' '_')
           python auditor/scripts/fix.py \
             --target /tmp/target_repo \
-            --findings auditor/findings/ \
+            --findings "auditor/findings/${REPO_SAFE}/" \
             --repo "${{ steps.target.outputs.name }}"
           cd /tmp/target_repo
           git add .github/workflows/
@@ -75,7 +77,7 @@ jobs:
           REPO_NAME="${{ steps.target.outputs.name }}"
           BRANCH="gha-security-fixes-$(date +%Y%m%d%H%M%S)"
           git checkout -b "$BRANCH"
-          git -c user.name="github-actions-auditor[bot]" -c user.email="github-actions-auditor[bot]@users.noreply.github.com" commit -m "security: harden GitHub Actions workflows"
+          git -c user.name="github-actions-auditor[bot]" -c user.email="github-actions-auditor[bot]@users.noreply.github.com" commit -m "[skip ci] security: harden GitHub Actions workflows"
           REPO_SHORT="${REPO_NAME##*/}"
           git remote add fork "https://x-access-token:${GH_TOKEN}@github.com/shunfeng8421/${REPO_SHORT}.git"
           git push fork "$BRANCH" --force
