@@ -1,0 +1,484 @@
+﻿# ============================================================
+# GitHub Actions Security Audit Rules v1.0
+# Covers supply chain, secrets, permissions, and injection risks
+# ============================================================
+
+## === Action Version Pinning ===
+
+rule_id: GHA-SEC-001
+name: "Unpinned Action Version (use commit SHA)"
+severity: high
+category: supply-chain
+tags: [pinning, supply-chain, action-version]
+detection:
+  methods:
+    - "Action referenced by tag (@v1, @v2, @v3, @v4, @main, @master)"
+    - "Action referenced by branch name without commit SHA"
+  patterns:
+    - "uses:\s*['\"]?[^@]+@(v\d+|main|master|latest)['\"]?"
+confidence: high
+severity_weight: 70
+fix:
+  1. Replace tag references with full commit SHA
+  2. Example: actions/checkout@v4 -> actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+  3. Use Dependabot to keep actions updated automatically
+known_exploits:
+  - "Tag mutability: maintainer can change what @v3 points to"
+  - "Supply chain attacks via compromised action versions"
+
+---
+
+rule_id: GHA-SEC-002
+name: "Unpinned Docker Image"
+severity: high
+category: supply-chain
+tags: [docker, pinning, supply-chain]
+detection:
+  methods:
+    - "Docker image referenced by :latest tag"
+    - "Docker image without digest pinning"
+  patterns:
+    - "image:\s*['\"]?[^@]+:(latest|\$\{\{)"
+confidence: high
+severity_weight: 70
+fix:
+  1. Pin Docker images to specific SHA256 digest
+  2. Use image@sha256:abc123... instead of image:latest
+known_exploits:
+  - "Malicious image substitution via tag mutability"
+  - "Docker Hub account takeover leading to poisoned images"
+
+---
+
+rule_id: GHA-SEC-003
+name: "Deprecated Node.js 12 Action"
+severity: medium
+category: supply-chain
+tags: [deprecated, nodejs, runtime]
+detection:
+  methods:
+    - "GitHub Actions using deprecated node12 runtime"
+    - "Third-party actions that haven't updated to node16/node20"
+  patterns:
+    - "node12"
+confidence: medium
+severity_weight: 40
+fix:
+  1. Update actions to use node16 or node20 runtime
+  2. Replace with alternative actions if maintainer hasn't updated
+known_exploits:
+  - "Node.js 12 reached end-of-life, no security patches"
+
+---
+
+## === Token & Permissions ===
+
+rule_id: GHA-SEC-004
+name: "Overly Permissive GITHUB_TOKEN (write-all)"
+severity: critical
+category: permissions
+tags: [token, permissions, least-privilege]
+detection:
+  methods:
+    - "permissions: write-all at workflow or job level"
+    - "No explicit permissions block defined"
+    - "Default token has more access than needed"
+  patterns:
+    - "permissions:\s*write-all"
+    - "No 'permissions:' key in workflow"
+confidence: high
+severity_weight: 90
+fix:
+  1. Add explicit permissions block with minimal required scopes
+  2. Use permissions: {} (empty) and add only what's needed per job
+  3. Example: permissions: contents: read, issues: write
+known_exploits:
+  - "Compromised workflow can push malicious code to the repo"
+  - "Excessive token access enables supply chain attacks"
+
+---
+
+rule_id: GHA-SEC-005
+name: "Missing Token Permission Restriction"
+severity: high
+category: permissions
+tags: [token, permissions, least-privilege]
+detection:
+  methods:
+    - "Workflow has no top-level permissions: {}"
+    - "All jobs inherit default broad token scope"
+  patterns:
+    - "No 'permissions:' at workflow-top level"
+confidence: medium
+severity_weight: 60
+fix:
+  1. Add permissions: {} at the top of every workflow
+  2. Then add only specific permissions each job needs
+  3. Default: no permissions unless explicitly granted
+known_exploits:
+  - "Token theft can expose entire repo contents"
+  - "Default token has read/write to all scopes"
+
+---
+
+rule_id: GHA-SEC-006
+name: "Secrets Passed to Forked PR Workflows"
+severity: critical
+category: permissions
+tags: [secrets, forked-pr, pull_request_target]
+detection:
+  methods:
+    - "pull_request_target trigger without secrets restriction"
+    - "Fork PR can access repository secrets"
+  patterns:
+    - "pull_request_target"
+confidence: high
+severity_weight: 95
+fix:
+  1. Never use pull_request_target with checkout of PR code
+  2. Use pull_request trigger + environment protection instead
+  3. If must use, explicitly set secrets: inherit only for safe secrets
+known_exploits:
+  - "Malicious PR can exfiltrate NPM tokens, AWS keys"
+  - "CVE-2023-XXXX: multiple supply chain attacks via fork PRs"
+
+---
+
+rule_id: GHA-SEC-007
+name: "Missing Environment Protection Rules"
+severity: medium
+category: permissions
+tags: [environment, deployment, protection]
+detection:
+  methods:
+    - "Deployment to production without environment protection"
+    - "No required reviewers for sensitive environments"
+  patterns:
+    - "environment:\s*(production|prod|release)"
+confidence: medium
+severity_weight: 50
+fix:
+  1. Add environment protection rules in repo settings
+  2. Require reviewers for production deployments
+  3. Add wait timer before deployment proceeds
+known_exploits:
+  - "Unauthorized deployments to production"
+  - "No audit trail for who approved deployment"
+
+---
+
+## === Secrets Handling ===
+
+rule_id: GHA-SEC-008
+name: "Echo/Print of Secrets"
+severity: critical
+category: secrets
+tags: [secrets, echo, log-exposure]
+detection:
+  methods:
+    - "run step that echoes a secret to stdout"
+    - "Secrets variable used in command that prints output"
+    - "Debug logging that exposes secrets"
+  patterns:
+    - "echo\s+.*\$\{\{\s*secrets\.\w+"
+    - "print.*\$\{\{\s*secrets\.\w+"
+    - "cat.*\$\{\{\s*secrets\.\w+"
+confidence: critical
+severity_weight: 100
+fix:
+  1. Never echo or print secret values
+  2. Use ::add-mask:: to register secrets if needed
+  3. Use GitHub's built-in secret masking
+known_exploits:
+  - "Secrets exposed in public build logs"
+  - "CI log scraping bots"
+
+---
+
+rule_id: GHA-SEC-009
+name: "Hardcoded Secrets in Workflow"
+severity: critical
+category: secrets
+tags: [secrets, hardcoded, credentials]
+detection:
+  methods:
+    - "API keys, tokens, passwords in workflow YAML"
+    - "Environment variables with hardcoded credentials"
+    - "Base64-encoded secrets as plain text"
+  patterns:
+    - "(TOKEN|KEY|SECRET|PASSWORD|CREDENTIAL)\s*:\s*['\"]\w{8,}['\"]"
+    - "(token|key|secret|password)\s*=\s*['\"]\w{8,}['\"]"
+    - "eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}"
+confidence: critical
+severity_weight: 100
+fix:
+  1. Move all secrets to GitHub Secrets (Settings > Secrets and variables > Actions)
+  2. Reference via ${{ secrets.SECRET_NAME }}
+  3. Rotate any exposed credentials immediately
+known_exploits:
+  - "Hardcoded AWS keys found in public repos"
+  - "NPM token exposure via workflow files"
+
+---
+
+rule_id: GHA-SEC-010
+name: "Secrets in Artifacts"
+severity: high
+category: secrets
+tags: [secrets, artifacts, upload]
+detection:
+  methods:
+    - "Build artifacts that may contain secrets"
+    - "Uploading .env files as artifacts"
+    - "Debug logs containing secrets in artifacts"
+  patterns:
+    - "path:\s*.*\.env"
+    - "actions/upload-artifact.*\.env"
+confidence: medium
+severity_weight: 60
+fix:
+  1. Always .gitignore and exclude .env from artifacts
+  2. Review artifact contents before upload
+  3. Use retention-days: 1 for sensitive artifacts
+known_exploits:
+  - "Secrets leaked via downloadable build artifacts"
+
+---
+
+## === Script Injection ===
+
+rule_id: GHA-SEC-011
+name: "Script Injection via Untrusted Input"
+severity: critical
+category: injection
+tags: [injection, script, bash, expression]
+detection:
+  methods:
+    - "GitHub context interpolated directly into shell script"
+    - "Untrusted input (issue title, PR body, commit message) in run: block"
+    - "Expression ${{ }} used inside run: command"
+  patterns:
+    - "run:.*\$\{\{\s*github\.event\.(issue|pull_request|comment)"
+    - "run:.*\$\{\{\s*github\.event\.head_commit\.message"
+confidence: critical
+severity_weight: 100
+fix:
+  1. Use intermediate environment variables instead of inline interpolation
+  2. Set env: MY_VAR: ${{ github.event.xxx }} then use $MY_VAR in script
+  3. Use actions/github-script for JavaScript handling
+known_exploits:
+  - "CVE-2021-XXXX: script injection via pull request title"
+  - "GitHub Actions command injection in workflow runs"
+
+---
+
+rule_id: GHA-SEC-012
+name: "Untrusted Checkout Without Caution"
+severity: high
+category: injection
+tags: [checkout, forked-pr, code-execution]
+detection:
+  methods:
+    - "checkout action without ref pinning in PR context"
+    - "PR head checked out without sanitization"
+    - "Full git history checked out unnecessarily"
+  patterns:
+    - "actions/checkout.*ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.ref"
+confidence: high
+severity_weight: 70
+fix:
+  1. Use actions/checkout with explicit ref for trusted branches
+  2. Set fetch-depth: 0 only when needed
+  3. Never checkout PR code before security review in sensitive workflows
+known_exploits:
+  - "Malicious PR code executed in CI context"
+  - "Supply chain compromise via code review bypass"
+
+---
+
+rule_id: GHA-SEC-013
+name: "Dangerous Workflow Run Trigger"
+severity: medium
+category: injection
+tags: [trigger, workflow_run, security]
+detection:
+  methods:
+    - "workflow_run trigger from untrusted workflows"
+    - "workflow_run without activity type filter"
+    - "Chain of trust not verified in workflow_run"
+  patterns:
+    - "workflow_run:"
+confidence: medium
+severity_weight: 40
+fix:
+  1. Add workflows: filter to only trusted workflow names
+  2. Add types: [completed] with success check
+  3. Verify the triggering workflow SHA matches expected value
+known_exploits:
+  - "Malicious workflow can trigger privileged downstream workflows"
+
+---
+
+## === Workflow Configuration ===
+
+rule_id: GHA-SEC-014
+name: "Missing Concurrency Group"
+severity: medium
+category: configuration
+tags: [concurrency, race-condition, deployment]
+detection:
+  methods:
+    - "No concurrency group defined for deployment workflows"
+    - "Multiple runs can execute simultaneously causing conflicts"
+  patterns:
+    - "No 'concurrency:' in deployment workflow"
+confidence: medium
+severity_weight: 35
+fix:
+  1. Add concurrency: group: ${{ github.workflow }}-${{ github.ref }}
+  2. Add cancel-in-progress: true for PR workflows
+  3. This prevents race conditions in deployments
+known_exploits:
+  - "Race condition in deployment causing data corruption"
+  - "Double deployment to production"
+
+---
+
+rule_id: GHA-SEC-015
+name: "Overly Broad Workflow Triggers"
+severity: low
+category: configuration
+tags: [triggers, events, attack-surface]
+detection:
+  methods:
+    - "Workflow triggered on all events indiscriminately"
+    - "push trigger without branch filter"
+    - "pull_request trigger without type filter"
+  patterns:
+    - "push:\s*$"
+    - "pull_request:\s*$"
+confidence: low
+severity_weight: 20
+fix:
+  1. Restrict push to specific branches (main, release/*)
+  2. Add types filter to pull_request event
+  3. Use paths filter to run only on relevant changes
+known_exploits:
+  - "Unnecessary workflow runs increase attack surface"
+
+---
+
+rule_id: GHA-SEC-016
+name: "Missing Condition on Sensitive Steps"
+severity: high
+category: configuration
+tags: [condition, if, deployment]
+detection:
+  methods:
+    - "Publish/deploy steps without branch condition"
+    - "npm publish / docker push without main branch guard"
+  patterns:
+    - "(publish|deploy|release|push).*without if:.*github\.ref"
+confidence: medium
+severity_weight: 55
+fix:
+  1. Add if: github.ref == 'refs/heads/main' to publish steps
+  2. Add environment condition check
+  3. Require manual approval for production deployments
+known_exploits:
+  - "Accidental publish from feature branch"
+
+---
+
+## === Third-Party Risk ===
+
+rule_id: GHA-SEC-017
+name: "Unverified Third-Party Action"
+severity: high
+category: supply-chain
+tags: [third-party, action, trust]
+detection:
+  methods:
+    - "Action from non-verified creator (no GitHub verified badge)"
+    - "Low-star / new action from unknown author"
+    - "Action with suspicious name (typosquatting)"
+  patterns:
+    - "uses:\s*(?!actions/|github/|docker/|google-github-actions/|azure/|aws-actions/|hashicorp/)[^@]+"
+confidence: medium
+severity_weight: 60
+fix:
+  1. Prefer actions from verified creators (actions/*, github/*)
+  2. Review action source code before using
+  3. Fork trusted actions to your org for supply chain control
+known_exploits:
+  - "Typosquatting of popular actions"
+  - "Malicious action stealing CI secrets"
+
+---
+
+rule_id: GHA-SEC-018
+name: "Full Git History Clone (fetch-depth: 0)"
+severity: low
+category: configuration
+tags: [checkout, performance, security]
+detection:
+  methods:
+    - "actions/checkout with fetch-depth: 0 unnecessarily"
+    - "Full clone exposing entire commit history"
+  patterns:
+    - "fetch-depth:\s*0"
+confidence: low
+severity_weight: 15
+fix:
+  1. Remove fetch-depth: 0 or set to 1 unless needed
+  2. Only clone full history when required (release notes, changelogs)
+known_exploits:
+  - "Exposes full commit history unnecessarily"
+  - "Increases attack surface for leaked secrets in old commits"
+
+---
+
+rule_id: GHA-SEC-019
+name: "No Job-Level Timeout"
+severity: medium
+category: configuration
+tags: [timeout, resource, dos]
+detection:
+  methods:
+    - "No timeout-minutes set on jobs"
+    - "Jobs can run indefinitely consuming minutes"
+  patterns:
+    - "No 'timeout-minutes:' in job definition"
+confidence: medium
+severity_weight: 30
+fix:
+  1. Set timeout-minutes: 15 (or appropriate value) on every job
+  2. Default GitHub timeout is 360 minutes - too long
+  3. Prevent runaway jobs consuming CI minutes
+known_exploits:
+  - "Runaway job consuming all GitHub Actions minutes"
+  - "Cryptominer abuse of CI runners"
+
+---
+
+rule_id: GHA-SEC-020
+name: "OpenID Connect (OIDC) Not Used for Cloud Auth"
+severity: medium
+category: cloud-security
+tags: [oidc, cloud, aws, azure, gcp]
+detection:
+  methods:
+    - "Cloud credentials stored as long-lived secrets instead of OIDC"
+    - "AWS_ACCESS_KEY_ID / AZURE_CREDENTIALS in secrets when OIDC available"
+  patterns:
+    - "aws-actions/configure-aws-credentials.*aws-access-key-id"
+    - "azure/login.*creds:"
+confidence: medium
+severity_weight: 45
+fix:
+  1. Use OIDC to authenticate to cloud providers
+  2. Remove long-lived cloud credentials from secrets
+  3. Configure OIDC trust between GitHub and cloud provider
+known_exploits:
+  - "Long-lived credentials never rotated"
+  - "Leaked cloud keys not time-limited"

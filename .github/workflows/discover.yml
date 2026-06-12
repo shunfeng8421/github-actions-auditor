@@ -1,0 +1,55 @@
+﻿name: "Discover Repos with Workflows"
+on:
+  schedule:
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      new_repos: ${{ steps.discover.outputs.new_repos }}
+      workflow_repos: ${{ steps.discover.outputs.workflow_repos }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90f19
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install requests pyyaml
+      - name: Discover repos
+        id: discover
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python auditor/scripts/discover.py \
+            --min-stars 20 \
+            --max-repos 100 \
+            --verify \
+            --output auditor/logs/discovered_repos.jsonl \
+            --state auditor/logs/discover_state.json
+      - name: Commit results
+        run: |
+          git config user.name "github-actions-auditor[bot]"
+          git config user.email "github-actions-auditor[bot]@users.noreply.github.com"
+          git add auditor/logs/
+          git diff --staged --quiet || (git commit -m "[bot] discover: new workflow repos" && git push)
+      - name: Create discovery issue
+        if: steps.discover.outputs.new_repos > 0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "[Discover] ${{ steps.discover.outputs.new_repos }} new repos (${{ steps.discover.outputs.workflow_repos }} with workflows)" \
+            --body "New repos discovered. Add \`audit-ready\` label to trigger audit." \
+            --label "discover"

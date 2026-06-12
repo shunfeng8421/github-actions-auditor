@@ -1,0 +1,94 @@
+﻿name: "Audit GitHub Actions Workflows"
+on:
+  issues:
+    timeout-minutes: 15
+    types: [labeled]
+  workflow_dispatch:
+    timeout-minutes: 15
+    inputs:
+      repo_url:
+        description: "Repo URL to audit"
+        required: true
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    timeout-minutes: 15
+    if: github.event.label.name == 'audit-ready' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90f19  # v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: pip install requests pyyaml
+      - name: Determine target repo
+        id: target
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO_URL="${{ github.event.inputs.repo_url }}"
+          if [ -z "$REPO_URL" ] && [ "${{ github.event_name }}" = "issues" ]; then
+            ISSUE_BODY=$(echo '${{ github.event.issue.body }}' | tr -d '\r')
+            REPO_URL=$(echo "$ISSUE_BODY" | grep -oP 'https://github\.com/[\w.-]+/[\w.-]+' | head -1)
+          fi
+          echo "url=${REPO_URL}" >> ${GITHUB_OUTPUT}
+      - name: Validate target
+        run: |
+          if [ -z "${{ steps.target.outputs.url }}" ]; then
+            echo "ERROR: No target repo URL found"
+            exit 1
+          fi
+          echo "Auditing: ${{ steps.target.outputs.url }}"
+      - name: Clone target repo
+        run: git clone --depth 1 ${{ steps.target.outputs.url }} /tmp/target_repo
+      - name: Run security audit
+        run: |
+          python auditor/scripts/audit.py \
+            --target /tmp/target_repo \
+            --rules auditor/rules/github-actions-security-rules.txt \
+            --output auditor/findings/ \
+            --log auditor/logs/events.jsonl
+      - name: Generate audit report
+        run: |
+          python auditor/scripts/report.py \
+            --findings auditor/findings/ \
+            --output auditor/logs/audit_report.md
+      - name: Commit audit findings
+        run: |
+          git config user.name "github-actions-auditor[bot]"
+          git config user.email "github-actions-auditor[bot]@users.noreply.github.com"
+          git add auditor/findings/ auditor/logs/
+          git diff --staged --quiet || (git commit -m "[bot] audit: ${{ steps.target.outputs.url }}" && git push)
+      - name: Post findings as issue comment
+        if: github.event_name == 'issues'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c379ccfba  # v7
+        with:
+          script: |
+            const fs = require("fs");
+            const path = "auditor/logs/audit_report.md";
+            if (fs.existsSync(path)) {
+              const report = fs.readFileSync(path, "utf8");
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: report.substring(0, 60000)
+              });
+            }
+      - name: Add fix-ready label
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} --add-label "fix-ready"
