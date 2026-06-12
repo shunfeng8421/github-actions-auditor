@@ -347,7 +347,7 @@ def main():
     args = parser.parse_args()
 
     token = os.environ.get("GITHUB_TOKEN")
-    if not args.dry_run and not token:
+    if args.create_pr and not token:
         print("ERROR: GITHUB_TOKEN not set (required for PR creation)", file=sys.stderr)
         sys.exit(1)
 
