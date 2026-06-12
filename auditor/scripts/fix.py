@@ -126,7 +126,6 @@ def add_job_timeouts(raw, parsed=None):
         
         # Find the job definition in raw YAML
         pattern = r"^  " + re.escape(job_name) + r"\s*:\s*$"
-        import re
         m = re.search(pattern, raw, re.MULTILINE)
         if m:
             insert_pos = raw[:m.end()].count("\n")
