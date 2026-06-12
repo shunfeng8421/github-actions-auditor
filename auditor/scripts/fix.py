@@ -19,31 +19,8 @@ except ImportError:
     sys.exit(1)
 
 # Known action versions -> commit SHA mapping for pinning
-ACTION_PIN_MAP = {
-    "actions/checkout@v4": "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
-    "actions/checkout@v3": "actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744",
-    "actions/checkout@v2": "actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5",
-    "actions/setup-python@v5": "actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90f19",
-    "actions/setup-python@v4": "actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b63e",
-    "actions/setup-node@v4": "actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a",
-    "actions/setup-node@v3": "actions/setup-node@5e21ff4d9bc1a8cf6de233a3057d20ec6b3fb69d",
-    "actions/setup-go@v5": "actions/setup-go@0a12fd9d22a1a3f11e0e3b0bbc35df7066f8b34d",
-    "actions/setup-go@v4": "actions/setup-go@93397bea11091df50f3d7e59dc26a7711a8bcfbe",
-    "actions/cache@v4": "actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9",
-    "actions/cache@v3": "actions/cache@e12d46a63a90f2fae62d114769bbf2a179198b56",
-    "actions/upload-artifact@v4": "actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808",
-    "actions/upload-artifact@v3": "actions/upload-artifact@a8a3f3ad30e3422c9c7b61ae7ccd2b6a8b704b10",
-    "actions/download-artifact@v4": "actions/download-artifact@65a9edc5881444af0b9093a5e628f2fe47ea84d7",
-    "actions/github-script@v7": "actions/github-script@60a0d83039c74a4aee543508d2ffcb1c379ccfba",
-    "docker/login-action@v3": "docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567",
-    "docker/login-action@v2": "docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc",
-    "docker/build-push-action@v5": "docker/build-push-action@2cdde995de11925a030ce8070c3d77a52ffcf1c0",
-    "docker/build-push-action@v4": "docker/build-push-action@2eb1c1961a95fc15694676618e422e8ad1e547c2",
-    "docker/setup-buildx-action@v3": "docker/setup-buildx-action@0d103c3126aa41d772a8362f6aa67afac040f954",
-    "aws-actions/configure-aws-credentials@v4": "aws-actions/configure-aws-credentials@010d0d273c0c9b8edd05e593338cc3be0b0ae47a",
-    "azure/login@v2": "azure/login@a65d45b3eadfd52a1c3ce3b0c7ac64536bd9e442",
-    "google-github-actions/auth@v2": "google-github-actions/auth@71fee32a0bb7e97b4d33d548e7d95701033d285b",
-}
+# Action pin map: tag -> commit SHA. Currently empty until real SHAs are verified.
+ACTION_PIN_MAP = {}
 
 def pin_action_version(raw):
     """Replace @vX tag references with commit SHAs."""
