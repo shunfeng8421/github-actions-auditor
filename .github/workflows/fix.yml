@@ -80,12 +80,12 @@ jobs:
           # Fork and push
           gh repo fork "$REPO_NAME" --clone=false --remote=false 2>&1 || true
           USERNAME=$(gh api user --jq '.login')
-          git push "https://x-access-token:${GH_TOKEN}@github.com/${USERNAME}/${REPO_SHORT}.git" "$BRANCH" --force 2>&1
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${USERNAME}/${REPO_SHORT}.git" "$BRANCH" --force
           
           # Create PR
           gh pr create \
             --repo "$REPO_NAME" \
             --head "${USERNAME}:${BRANCH}" \
-            --base master \
+            --base "$(gh api "repos/${{ steps.target.outputs.name }}" --jq \".default_branch\")" \
             --title "security: harden GitHub Actions workflows" \
             --body "Automated security fixes by github-actions-auditor" 2>&1
