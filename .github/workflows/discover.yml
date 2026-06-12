@@ -19,7 +19,6 @@ jobs:
     timeout-minutes: 30
     outputs:
       new_repos: ${{ steps.discover.outputs.new_repos }}
-      workflow_repos: ${{ steps.discover.outputs.workflow_repos }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,8 +33,7 @@ jobs:
         run: |
           python auditor/scripts/discover.py \
             --min-stars 20 \
-            --max-repos 100 \
-            --verify \
+            --max-repos 50 \
             --output auditor/logs/discovered_repos.jsonl \
             --state auditor/logs/discover_state.json
       - name: Commit results
@@ -43,13 +41,17 @@ jobs:
           git config user.name "github-actions-auditor[bot]"
           git config user.email "github-actions-auditor[bot]@users.noreply.github.com"
           git add auditor/logs/
-          git diff --staged --quiet || (git commit -m "[bot] discover: new workflow repos" && git push)
+          if ! git diff --staged --quiet; then
+            git commit -m "[bot] discover: new workflow repos" && \
+            git pull --rebase origin master && \
+            git push origin master
+          fi
       - name: Create discovery issue
         if: steps.discover.outputs.new_repos > 0
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue create \
-            --title "[Discover] ${{ steps.discover.outputs.new_repos }} new repos (${{ steps.discover.outputs.workflow_repos }} with workflows)" \
-            --body "New repos discovered. Add \`audit-ready\` label to trigger audit." \
+            --title "[Discover] ${{ steps.discover.outputs.new_repos }} new repos found" \
+            --body "New repos discovered. Add audit-ready label to trigger audit." \
             --label "discover"
