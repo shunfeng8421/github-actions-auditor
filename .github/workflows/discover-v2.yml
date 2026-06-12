@@ -1,7 +1,10 @@
 name: "Discover Repos v2"
 on: workflow_dispatch
+permissions:
+  contents: write
+  issues: write
 jobs:
   discover:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "discover starting..."
+      - run: echo "with permissions"
