@@ -1,6 +1,6 @@
 # GitHub Actions Security Audit Report
 
-**Generated:** 2026-06-12T09:23:04.935756Z
+**Generated:** 2026-06-12T09:26:50.238563Z
 **Target:** /tmp/target_repo
 **Workflow files scanned:** 4
 **Total findings:** 4
