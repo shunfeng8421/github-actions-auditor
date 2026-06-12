@@ -1,0 +1,18 @@
+﻿# Runtime outputs
+auditor/logs/
+auditor/findings/
+auditor/case-studies/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Keep directory structure
+!auditor/logs/.gitkeep
+!auditor/findings/.gitkeep
+!auditor/case-studies/.gitkeep
