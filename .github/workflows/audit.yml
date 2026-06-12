@@ -27,20 +27,18 @@ jobs:
           python-version: "3.12"
       - name: Install deps
         run: pip install requests pyyaml
-      - name: Determine target repo
+            - name: Determine target repo
         id: target
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             REPO_URL="${{ github.event.inputs.repo_url }}"
-          echo "url=${REPO_URL}" >> ${GITHUB_OUTPUT}
           else
             ISSUE_BODY="${{ github.event.issue.body }}"
             REPO_URL=$(echo "$ISSUE_BODY" | grep -oP 'https://github\.com/[\w.-]+/[\w.-]+' | head -1)
-            echo "url=${REPO_URL}" >> ${GITHUB_OUTPUT}
           fi
-      - name: Clone target repo
+          echo "url=${REPO_URL}" >> ${GITHUB_OUTPUT}- name: Clone target repo
         run: git clone --depth 1 ${{ steps.target.outputs.url }} /tmp/target_repo
       - name: Run security audit
         run: |
