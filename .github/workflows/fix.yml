@@ -55,7 +55,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python auditor/scripts/fix.py \
+          python auditor/scripts/fix.py --token "${{ secrets.GH_PAT }}" \
             --target /tmp/target_repo \
             --findings auditor/findings/ \
             --repo "${{ steps.target.outputs.name }}" \
