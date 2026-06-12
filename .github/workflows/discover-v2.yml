@@ -9,5 +9,23 @@ concurrency:
 jobs:
   discover:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      new_repos: ${{ steps.discover.outputs.new_repos }}
     steps:
-      - run: echo "with permissions and concurrency"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90f19
+        with:
+          python-version: "3.12"
+      - run: pip install requests pyyaml
+      - name: Discover
+        id: discover
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python auditor/scripts/discover.py \
+            --min-stars 20 \
+            --max-repos 10 \
+            --verify \
+            --output auditor/logs/discovered_repos.jsonl \
+            --state auditor/logs/discover_state.json
