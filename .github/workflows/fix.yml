@@ -78,7 +78,7 @@ jobs:
           REPO_SHORT="${REPO_NAME##*/}"
           
           # Fork and push
-          gh repo fork "$REPO_NAME" --clone=false --remote=false 2>&1 || true
+          gh repo fork "$REPO_NAME" --clone=false 2>&1 || echo "Fork may already exist"
           USERNAME=$(gh api user --jq '.login')
           git push "https://x-access-token:${GH_TOKEN}@github.com/${USERNAME}/${REPO_SHORT}.git" "$BRANCH" --force
           
